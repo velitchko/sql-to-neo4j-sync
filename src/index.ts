@@ -1,1 +1,83 @@
-import { MySQLConnector } from './connectors/mysql';\nimport { Neo4jConnector } from './connectors/neo4j';\nimport { SqlConfig, Neo4jConfig } from './types';\n\nexport async function syncMySQLToNeo4j(mysqlConfig: SqlConfig, neo4jConfig: Neo4jConfig) {\n  const mysql = new MySQLConnector(mysqlConfig);\n  const neo4j = new Neo4jConnector(neo4jConfig);\n\n  const tables = await mysql.getTables();\n\n  // First pass: create nodes for every row\n  const tableRows: Record<string, any[]> = {};\n  for (const table of tables) {\n    const schema = await mysql.getTableSchema(table);\n    const rows = await mysql.getTableRows(table);\n    tableRows[table] = rows;\n\n    for (const row of rows) {\n      const properties = Object.entries(row)\n        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)\n        .join(', ');\n\n      const cypher = `MERGE (n:${table} {${properties}})`;\n      await neo4j.runCypher(cypher);\n    }\n  }\n\n  // Second pass: create relationships with properties from foreign keys\n  for (const table of tables) {\n    const schema = await mysql.getTableSchema(table);\n    const fkList = schema.foreignKeys || [];\n    const rows = tableRows[table];\n\n    for (const fk of fkList) {\n      for (const row of rows) {\n        // Relationship properties: include the FK value and all row props if desired\n        const relProps = Object.entries(row)\n          .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)\n          .join(', ');\n\n        const fromId = row[fk.column];\n        // Find the matching target row(s) by referenced column value\n        const targetTableRows = tableRows[fk.references.table] || [];\n        const targets = targetTableRows.filter(targetRow => targetRow[fk.references.column] === fromId);\n\n        for (const targetRow of targets) {\n          // Node match by PKs\n          const fromMatch = Object.entries(row)\n            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)\n            .join(', ');\n\n          const toMatch = `${fk.references.column}: ${JSON.stringify(targetRow[fk.references.column])}`;\n\n          const cypher = `\n            MATCH (a:${table} {${fromMatch}})\n            MATCH (b:${fk.references.table} {${toMatch}})\n            MERGE (a)-[r:${fk.column}_TO_${fk.references.table} {${relProps}}]->(b)\n          `;\n          await neo4j.runCypher(cypher);\n        }\n      }\n    }\n  }\n\n  await neo4j.close();\n}
+import dotenv from 'dotenv';
+dotenv.config();
+
+import { MySQLConnector } from './connectors/mysql';
+import { Neo4jConnector } from './connectors/neo4j';
+import { SqlConfig, Neo4jConfig } from './types';
+
+export async function syncMySQLToNeo4j() {
+  const mysqlConfig: SqlConfig = {
+    host: process.env.MYSQL_HOST || 'localhost',
+    user: process.env.MYSQL_USER || 'root',
+    password: process.env.MYSQL_PASSWORD || '',
+    database: process.env.MYSQL_DATABASE || '',
+    port: process.env.MYSQL_PORT ? parseInt(process.env.MYSQL_PORT, 10) : 3306,
+  };
+
+  const neo4jConfig: Neo4jConfig = {
+    uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
+    user: process.env.NEO4J_USER || 'neo4j',
+    password: process.env.NEO4J_PASSWORD || '',
+  };
+
+  const mysql = new MySQLConnector(mysqlConfig);
+  const neo4j = new Neo4jConnector(neo4jConfig);
+
+  const tables = await mysql.getTables();
+
+  // First pass: create nodes for every row
+  const tableRows: Record<string, any[]> = {};
+  for (const table of tables) {
+    const schema = await mysql.getTableSchema(table);
+    const rows = await mysql.getTableRows(table);
+    tableRows[table] = rows;
+
+    for (const row of rows) {
+      const properties = Object.entries(row)
+        .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+        .join(', ');
+
+      const cypher = `MERGE (n:${table} {${properties}})`;
+      await neo4j.runCypher(cypher);
+    }
+  }
+
+  // Second pass: create relationships with properties from foreign keys
+  for (const table of tables) {
+    const schema = await mysql.getTableSchema(table);
+    const fkList = schema.foreignKeys || [];
+    const rows = tableRows[table];
+
+    for (const fk of fkList) {
+      for (const row of rows) {
+        // Relationship properties: include the FK value and all row props if desired
+        const relProps = Object.entries(row)
+          .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+          .join(', ');
+
+        const fromId = row[fk.column];
+        // Find the matching target row(s) by referenced column value
+        const targetTableRows = tableRows[fk.references.table] || [];
+        const targets = targetTableRows.filter(targetRow => targetRow[fk.references.column] === fromId);
+
+        for (const targetRow of targets) {
+          // Node match by PKs
+          const fromMatch = Object.entries(row)
+            .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+            .join(', ');
+
+          const toMatch = `${fk.references.column}: ${JSON.stringify(targetRow[fk.references.column])}`;
+
+          const cypher = `
+            MATCH (a:${table} {${fromMatch}})
+            MATCH (b:${fk.references.table} {${toMatch}})
+            MERGE (a)-[r:${fk.column}_TO_${fk.references.table} {${relProps}}]->(b)
+          `;
+          await neo4j.runCypher(cypher);
+        }
+      }
+    }
+  }
+
+  await neo4j.close();
+}

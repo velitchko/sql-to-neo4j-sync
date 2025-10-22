@@ -1,1 +1,33 @@
-{\n  "name": "sql-to-neo4j-sync",\n  "version": "0.1.0",\n  "description": "Sync and translate MySQL database contents into Neo4j graph database.",\n  "main": "dist/index.js",\n  "types": "dist/index.d.ts",\n  "scripts": {\n    "build": "tsc",\n    "test": "echo \"No tests yet\""\n  },\n  "repository": {\n    "type": "git",\n    "url": "git+https://github.com/velitchko/sql-to-neo4j-sync.git"\n  },\n  "keywords": [\n    "mysql",\n    "neo4j",\n    "database",\n    "sync",\n    "graph",\n    "etl"\n  ],\n  "author": "velitchko",\n  "license": "MIT",\n  "dependencies": {\n    "mysql2": "^3.9.0",\n    "neo4j-driver": "^5.16.0"\n  },\n  "devDependencies": {\n    "typescript": "^5.4.5"\n  }\n}
+{
+  "name": "sql-to-neo4j-sync",
+  "version": "0.1.0",
+  "description": "Sync and translate MySQL database contents into Neo4j graph database.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"No tests yet\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/velitchko/sql-to-neo4j-sync.git"
+  },
+  "keywords": [
+    "mysql",
+    "neo4j",
+    "database",
+    "sync",
+    "graph",
+    "etl"
+  ],
+  "author": "velitchko",
+  "license": "MIT",
+  "dependencies": {
+    "mysql2": "^3.9.0",
+    "neo4j-driver": "^5.16.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

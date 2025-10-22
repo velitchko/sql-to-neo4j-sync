@@ -13,8 +13,16 @@ A Node.js library to read relational data from MySQL databases and sync/translat
 ## Getting Started
 
 ```bash
-npm install sql-to-neo4j-sync
+npm install
+cp .env.example .env
+# Edit .env with your credentials
+npm run build
 ```
+
+## Configuration
+
+Set up your connection credentials in `.env` (see `.env.example`).  
+The app will load credentials from environment variables.
 
 ## Usage
 
